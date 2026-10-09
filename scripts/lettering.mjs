@@ -59,8 +59,11 @@ const font = new hb.Font(
   new hb.Face(new hb.Blob(woffToSfnt(readFileSync(FONT)).buffer)),
 );
 
-/** SVG of `text`, shaped like a browser would. CSS font-size sets its size. */
-export function lettering(text) {
+/**
+ * Shapes `text` like a browser would and returns one SVG path for all its
+ * glyphs, plus the tight box around the ink (in font units, y-down).
+ */
+export function shape(text) {
   const buffer = new hb.Buffer();
   buffer.addText(text);
   buffer.guessSegmentProperties();
@@ -94,9 +97,14 @@ export function lettering(text) {
     pen += p.xAdvance;
   }
 
-  const height = maxY - minY;
+  return { d, x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+}
+
+/** SVG of `text`, shaped like a browser would. CSS font-size sets its size. */
+export function lettering(text) {
+  const { d, x, y, width, height } = shape(text);
   return (
-    `<svg class="lettering" viewBox="${minX} ${minY} ${maxX - minX} ${height}" ` +
+    `<svg class="lettering" viewBox="${x} ${y} ${width} ${height}" ` +
     `style="height:${(height / font.face.upem).toFixed(3)}em" role="img" aria-label="${text}">` +
     `<path fill="currentColor" d="${d}"/></svg>`
   );

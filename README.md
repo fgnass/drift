@@ -49,6 +49,7 @@ npm run build      # build to dist/
 npm run preview    # serve the build
 npm test           # run the tests
 npm run screenshot # update the screenshots in public/screenshots/
+npm run icons      # regenerate the app icons in public/ and public/icons/
 ```
 
 Built with [Vite](https://vite.dev/) and

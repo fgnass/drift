@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "screenshot": "node scripts/screenshot.mjs"
+    "screenshot": "node scripts/screenshot.mjs",
+    "icons": "node scripts/icons.mjs"
   },
   "devDependencies": {
     "@fontsource/economica": "^5.3.0",
