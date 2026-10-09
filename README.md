@@ -5,7 +5,11 @@ and drift off to sleep.
 
 **https://drift.gnass.buzz/**
 
-![drift: snow and northern lights outside a night window](public/screenshots/og.png)
+<p align="center">
+  <img src="public/screenshots/start.png" width="300" alt="drift on a phone: snow and northern lights outside a night window" />
+  &nbsp;&nbsp;
+  <img src="public/screenshots/mixer.png" width="300" alt="drift on a phone, with the sound mixer open" />
+</p>
 
 ## What it does
 

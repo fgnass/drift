@@ -9,7 +9,7 @@
  * They land in public/screenshots/, so the deployed site serves them at
  * https://drift.gnass.buzz/screenshots/*.png.
  *
- *   public/screenshots/start.png   the start screen, before play
+ *   public/screenshots/start.png   playing, the main screen
  *   public/screenshots/mixer.png   playing, with the sound mixer open
  *   public/screenshots/og.png      the link preview (og:image): playing on a
  *                                  desktop viewport, in a browser window on
@@ -123,15 +123,17 @@ async function frameInBrowser(browser, png, canvas, w, content) {
 
 /** Each shot: how to bring the app into its state. */
 const SHOTS = {
+  // Before play there is only the sky, so every shot plays first.
   start: {
     async stage(page) {
+      await play(page);
       await wait(page, AURORA_MS);
     },
   },
   mixer: {
     async stage(page) {
       await play(page);
-      await page.click(".mixer summary");
+      await page.click("#mixer-toggle");
       await wait(page, AURORA_MS);
     },
   },
