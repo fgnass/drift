@@ -80,7 +80,7 @@ export function startScene(canvas, { now, aurora }) {
   let lastFrame = 0;
   let motion = 0; // 0 = still (paused), 1 = moving (sound plays)
   let presence = 0; // 0 = only the sky (paused), 1 = snow and aurora shown
-  let resized = true; // draw at least once after a resize
+  let resized = false; // draw at least once after a resize
 
   // Messages from the worklet, applied when their sound is heard
   const queue = [];
@@ -107,6 +107,9 @@ export function startScene(canvas, { now, aurora }) {
     const dpr = Math.min(devicePixelRatio || 1, 2);
     width = canvas.clientWidth;
     height = canvas.clientHeight;
+    // Not laid out yet (cold start of the installed app): frame() tries again
+    if (!width || !height) return;
+    resized = true;
     canvas.width = width * dpr;
     canvas.height = height * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -387,6 +390,10 @@ export function startScene(canvas, { now, aurora }) {
 
   function frame(t) {
     requestAnimationFrame(frame);
+    if (!field) {
+      resize();
+      if (!field) return;
+    }
     if (t - lastFrame < 1000 / FPS - 2) return;
     const dt = Math.min((t - lastFrame) / 1000, 0.1);
     lastFrame = t;
@@ -402,10 +409,7 @@ export function startScene(canvas, { now, aurora }) {
     drawCandle();
   }
 
-  addEventListener("resize", () => {
-    resize();
-    resized = true;
-  });
+  addEventListener("resize", resize);
   resize();
   requestAnimationFrame(frame);
 

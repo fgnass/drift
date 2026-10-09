@@ -58,7 +58,15 @@ function heardTime() {
   return ctx.currentTime - (ctx.outputLatency || ctx.baseLatency || 0);
 }
 
-const scene = startScene($("#scene"), { now: heardTime, aurora: $("#aurora") });
+// The scene is decoration: if it fails, the player must still work.
+const scene = (() => {
+  try {
+    return startScene($("#scene"), { now: heardTime, aurora: $("#aurora") });
+  } catch (error) {
+    console.error(error);
+    return { receive() {}, setFade() {} };
+  }
+})();
 
 // Must run inside the click handler: iOS only unlocks audio when
 // resume() is called synchronously in a user gesture.
@@ -285,13 +293,16 @@ resetBtn.addEventListener("click", () => {
 
 // The panel is a popover (top layer, closes on a click outside and on
 // Escape), so it is placed above the bar by hand.
+// Only the bar rect is used: the viewport size is unreliable on mobile,
+// where the browser toolbar comes and goes.
 function placeMixer() {
   const r = bar.getBoundingClientRect();
   const narrow = matchMedia("(max-width: 760px)").matches;
   // Narrow: as wide as the bar, aligned with its outer border
-  mixerPanel.style.right = `${innerWidth - r.right - (narrow ? 1 : 0)}px`;
-  mixerPanel.style.bottom = `${innerHeight - r.top + 12}px`;
-  mixerPanel.style.width = narrow ? `${r.width + 2}px` : "";
+  const width = narrow ? r.width + 2 : 300;
+  mixerPanel.style.width = `${width}px`;
+  mixerPanel.style.left = `${r.right + (narrow ? 1 : 0) - width}px`;
+  mixerPanel.style.top = `${r.top - 12}px`;
 }
 mixerPanel.addEventListener("beforetoggle", (e) => {
   const open = e.newState === "open";
