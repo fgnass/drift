@@ -1,0 +1,212 @@
+:root {
+  color-scheme: dark;
+  --bg: #080b12;
+  --fg: #f3f4f7;
+  --soft: #d0d5df;
+  --muted: #a0a8b8;
+  --line: rgba(255, 255, 255, .1);
+  --glass-border: 1px solid var(--line);
+  --accent: #d6e4ff;
+  --radius-panel: 24px;
+  --radius-control: 9px;
+  --glass-fill: rgba(34, 40, 53, .22);
+  --glass-fill-active: rgba(34, 40, 53, .3);
+  --glass-blur: blur(6px) saturate(120%);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, .06);
+  --glass-shadow: 0 12px 40px rgba(0, 0, 0, .2), var(--glass-highlight);
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background: radial-gradient(ellipse at 70% 100%, #18243b 0%, transparent 65%), linear-gradient(180deg, #080b12, #111927) fixed;
+  background-color: var(--bg);
+  color: var(--fg);
+  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+button, input, summary { -webkit-tap-highlight-color: transparent; }
+#aurora, #scene { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+#aurora { filter: blur(26px); transform: scale(1.08); mix-blend-mode: screen; }
+main { position: fixed; inset: 0; transition: opacity .4s; }
+body.idle main { opacity: .14; transition: opacity 4s; }
+.label { color: var(--muted); font-size: 12px; font-weight: 500; letter-spacing: .01em; }
+
+.brand {
+  position: absolute;
+  top: max(40px, env(safe-area-inset-top));
+  left: max(44px, env(safe-area-inset-left));
+}
+h1 { margin: 0; font-size: 32px; font-weight: 400; line-height: 1; }
+/* Wordmark in Economica Italic, as inline SVG (see scripts/lettering.mjs).
+   The font size of the parent sets its size. */
+.lettering { display: block; width: auto; }
+.tagline { margin: 8px 0 0; color: var(--muted); font-size: 13px; letter-spacing: -.01em; }
+
+.play {
+  position: absolute;
+  z-index: 1;
+  left: 50%; top: 50%;
+  width: 80px; height: 80px;
+  margin: -40px 0 0 -40px;
+  padding: 0;
+  border: var(--glass-border);
+  border-radius: 50%;
+  background: var(--glass-fill);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow);
+  color: var(--fg);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: transform .2s, background .2s;
+}
+.play svg { width: 24px; height: 24px; fill: currentColor; }
+.play .icon-play { transform: translateX(1px); }
+.play .icon-pause, .play[aria-pressed="true"] .icon-play { display: none; }
+.play[aria-pressed="true"] .icon-pause { display: block; }
+.play[aria-pressed="true"] { animation: breathe 8s ease-in-out infinite; }
+@keyframes breathe { 50% { background: var(--glass-fill-active); } }
+.play:active { transform: scale(.96); }
+.play:focus-visible, .chips button:focus-visible, .mixer summary:focus-visible, input:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 4px;
+}
+.status { position: absolute; left: 0; right: 0; bottom: 126px; margin: 0; text-align: center; color: var(--muted); font-size: 13px; }
+
+.bar {
+  position: absolute;
+  z-index: 2; /* Above the play button, so the mixer panel opens in front of it */
+  left: 20px; right: 20px;
+  bottom: max(32px, calc(env(safe-area-inset-bottom) + 16px));
+  width: fit-content; max-width: calc(100% - 40px);
+  margin: 0 auto;
+  display: flex; align-items: center;
+  gap: 20px;
+  padding: 14px 18px;
+  border-radius: var(--radius-panel);
+  border: var(--glass-border);
+  background: var(--glass-fill);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow);
+}
+.sep { width: 1px; height: 22px; background: var(--line); }
+.volume { display: flex; align-items: center; gap: 12px; }
+.volume svg { width: 18px; height: 18px; fill: none; stroke: var(--soft); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.volume input { width: 120px; }
+.chips {
+  position: relative;
+  display: flex; align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: rgba(0, 0, 0, .18);
+  border-radius: 12px;
+}
+.chips .label { margin: 0 12px 0 8px; }
+.chips button {
+  position: relative;
+  height: 32px; min-width: 46px;
+  padding: 0 12px;
+  border: 0; border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--muted);
+  font: inherit; font-size: 12px; font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background .18s, color .18s, box-shadow .18s;
+}
+.chips button[aria-checked="true"] {
+  background: rgba(255, 255, 255, .13);
+  color: var(--fg);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .18), inset 0 1px 0 rgba(255, 255, 255, .08);
+}
+/* Always takes its space, also when empty, so the bar keeps its width on play */
+.remaining { min-width: 52px; text-align: right; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--soft); }
+.mixer summary {
+  position: relative; list-style: none;
+  width: 36px; height: 36px;
+  border-radius: var(--radius-control);
+  display: grid; place-items: center;
+  cursor: pointer; color: var(--soft);
+  transition: background .18s;
+}
+.mixer summary::-webkit-details-marker { display: none; }
+.mixer summary svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
+.mixer[open] summary { background: rgba(255, 255, 255, .1); color: var(--fg); }
+.mixer-panel {
+  position: absolute;
+  right: 0; bottom: calc(100% + 12px);
+  width: 300px;
+  padding: 22px;
+  border-radius: var(--radius-panel);
+  border: var(--glass-border);
+  /* No glass here: the bar has its own backdrop-filter and is thus a backdrop
+     root, so a blur in the panel cannot reach the scene or the play button
+     behind the panel. A near-opaque fill covers them instead. */
+  background: rgba(30, 36, 48, .88);
+  box-shadow: var(--glass-shadow);
+}
+.mixer-title { margin: 0 0 6px; font-size: 14px; font-weight: 600; letter-spacing: -.015em; }
+.hint { margin: 0 0 16px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.slider { display: grid; grid-template-columns: 56px minmax(0, 1fr); align-items: center; gap: 18px; padding: 9px 0; color: var(--soft); font-size: 12px; }
+
+input[type="range"] {
+  --progress: 50%;
+  -webkit-appearance: none; appearance: none;
+  height: 28px; min-width: 0; margin: 0;
+  background: transparent; cursor: pointer;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px; border-radius: 4px;
+  background: linear-gradient(to right, #d0d8e5 0%, #d0d8e5 var(--progress), rgba(255, 255, 255, .16) var(--progress), rgba(255, 255, 255, .16) 100%);
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px; margin-top: -5px;
+  border-radius: 50%; background: #f4f5f8;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .25);
+}
+input[type="range"]::-moz-range-track { height: 4px; border-radius: 4px; background: rgba(255, 255, 255, .16); }
+input[type="range"]::-moz-range-progress { height: 4px; border-radius: 4px; background: #d0d8e5; }
+input[type="range"]::-moz-range-thumb { width: 14px; height: 14px; border: 0; border-radius: 50%; background: #f4f5f8; box-shadow: 0 1px 4px rgba(0, 0, 0, .25); }
+
+@media (hover: hover) {
+  .play:hover { background: var(--glass-fill-active); transform: scale(1.025); }
+  .chips button:hover { color: var(--fg); background: rgba(255, 255, 255, .06); }
+  .chips button[aria-checked="true"]:hover { background: rgba(255, 255, 255, .16); }
+  .mixer summary:hover { background: rgba(255, 255, 255, .08); }
+}
+@media (max-width: 760px) {
+  .brand { left: 28px; right: 28px; top: max(36px, calc(env(safe-area-inset-top) + 20px)); }
+  .bar {
+    left: 16px; right: 16px;
+    bottom: max(20px, calc(env(safe-area-inset-bottom) + 12px));
+    width: auto; max-width: 440px;
+    display: grid; grid-template-columns: minmax(0, 1fr) 36px;
+    gap: 14px 12px; padding: 18px;
+  }
+  .volume { grid-column: 1 / -1; gap: 14px; }
+  .volume .label, .chips .label, .sep { display: none; }
+  .volume input { flex: 1; width: auto; }
+  .chips { grid-column: 1; grid-row: 2; }
+  .chips button { flex: 1; min-width: 0; height: 36px; padding: 0 7px; }
+  .mixer { grid-column: 2; grid-row: 2; }
+  .remaining { grid-column: 1 / -1; grid-row: 3; text-align: center; }
+  .remaining:empty { display: none; }
+  .status { bottom: 192px; }
+  .mixer-panel { right: -1px; width: calc(100% + 2px); }
+}
+@media (max-height: 440px) and (min-width: 761px) {
+  .brand { top: 24px; left: 28px; }
+  .play { top: 44%; width: 64px; height: 64px; margin: -32px 0 0 -32px; }
+  .bar { bottom: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .bar { background: #202735; }
+  .play { background: #252e3e; }
+}

@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#080b12" />
+    <meta name="description" content="A blizzard outside your window, synthesized live. Made to help you relax and drift off to sleep." />
+    <title>drift</title>
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://drift.gnass.buzz/" />
+    <meta property="og:title" content="drift" />
+    <meta property="og:description" content="A blizzard outside your window, synthesized live. Made to help you relax and drift off to sleep." />
+    <meta property="og:image" content="https://drift.gnass.buzz/screenshots/og.png" />
+    <meta property="og:image:width" content="2400" />
+    <meta property="og:image:height" content="1260" />
+    <meta property="og:image:alt" content="The drift app: snow and northern lights outside a night window" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="stylesheet" href="/src/style.css" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 64x64" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="drift" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  </head>
+  <body>
+    <canvas id="aurora" aria-hidden="true"></canvas>
+    <canvas id="scene" aria-hidden="true"></canvas>
+
+    <main>
+      <header class="brand">
+        <h1 data-lettering>drift</h1>
+        <p class="tagline">Let the snow drift. Follow along.</p>
+      </header>
+
+      <button id="play" class="play" aria-label="Play" aria-pressed="false">
+        <svg class="icon-play" viewBox="0 0 22 22" aria-hidden="true"><path d="M6.5 5.6c0-1.2 1.3-1.9 2.3-1.3l9 5.4c1 .6 1 2 0 2.6l-9 5.4c-1 .6-2.3-.1-2.3-1.3z" /></svg>
+        <svg class="icon-pause" viewBox="0 0 22 22" aria-hidden="true"><rect x="5" y="4" width="4" height="14" rx="1.2" /><rect x="13" y="4" width="4" height="14" rx="1.2" /></svg>
+      </button>
+
+      <p id="status" class="status" aria-live="polite">&nbsp;</p>
+
+      <div class="bar">
+        <label class="volume">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4z" /><path d="M15.5 9a4 4 0 0 1 0 6" /><path d="M18 6.5a7.5 7.5 0 0 1 0 11" /></svg>
+          <span class="label">Volume</span>
+          <input type="range" id="volume" min="0" max="1" step="0.01" aria-label="Volume" />
+        </label>
+
+        <span class="sep" aria-hidden="true"></span>
+
+        <div class="chips" role="radiogroup" aria-label="Sleep timer">
+          <span class="label">Sleep</span>
+          <button role="radio" data-minutes="0">Off</button>
+          <button role="radio" data-minutes="15">15 m</button>
+          <button role="radio" data-minutes="30">30 m</button>
+          <button role="radio" data-minutes="60">1 h</button>
+          <button role="radio" data-minutes="120">2 h</button>
+        </div>
+
+        <span class="sep" aria-hidden="true"></span>
+
+        <span id="remaining" class="remaining" aria-label="Time remaining"></span>
+
+        <details class="mixer">
+          <summary aria-label="Mixer">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 12h3M11 12h9M4 17h12M20 17h0" /><circle cx="15.5" cy="7" r="2" /><circle cx="8.5" cy="12" r="2" /><circle cx="17.5" cy="17" r="2" /></svg>
+          </summary>
+          <div class="mixer-panel">
+            <h2 class="mixer-title">Sound mix</h2>
+            <p class="hint">The storm evolves on its own. Make it yours.</p>
+            <label class="slider"><span>Rumble</span><input type="range" data-layer="rumble" min="0" max="1" step="0.01" /></label>
+            <label class="slider"><span>Wind</span><input type="range" data-layer="wind" min="0" max="1" step="0.01" /></label>
+            <label class="slider"><span>Howl</span><input type="range" data-layer="howl" min="0" max="1" step="0.01" /></label>
+            <label class="slider"><span>Snow</span><input type="range" data-layer="snow" min="0" max="1" step="0.01" /></label>
+          </div>
+        </details>
+      </div>
+    </main>
+
+    <script type="module" src="/src/app.js"></script>
+  </body>
+</html>
