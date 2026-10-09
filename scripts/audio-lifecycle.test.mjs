@@ -31,6 +31,7 @@ function setup({ defer = false, fail = false } = {}) {
       body: { classList: { remove() {}, add() {} } },
     },
     navigator: {}, localStorage: { getItem() { return null; }, setItem() {} },
+    matchMedia() { return { matches: false }; },
     registerSW() {}, startScene() { return { receive() {}, setFade() {} }; },
     DEFAULT_MIX: { rumble: 0.8, wind: 0.7, howl: 0.75, snow: 0.5 },
     SAMPLE_RATE: 24000,
