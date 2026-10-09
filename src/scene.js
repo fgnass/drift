@@ -14,8 +14,12 @@
 //
 // The aurora is not always there: it comes in episodes every few minutes,
 // grows over half a minute, stays for a while and fades again. The first
-// episode starts after a few seconds and grows faster, so that the aurora
-// is visible within the first 10 s.
+// episode starts a few seconds after play and grows faster, so that the
+// aurora is visible within the first 10 s.
+//
+// While the sound is paused there is only the sky and the candle: snow and
+// aurora fade out, all motion eases out and the drawing stops, until the
+// sound plays again.
 
 import { simplex3 } from "./noise.js";
 
@@ -72,8 +76,11 @@ export function startScene(canvas, { now, aurora }) {
   let dust = [];
   let fade = 1;
   let fadeTarget = 1;
-  let time = 0;
+  let time = 0; // scene time, only runs while the scene moves
   let lastFrame = 0;
+  let motion = 0; // 0 = still (paused), 1 = moving (sound plays)
+  let presence = 0; // 0 = only the sky (paused), 1 = snow and aurora shown
+  let resized = true; // draw at least once after a resize
 
   // Messages from the worklet, applied when their sound is heard
   const queue = [];
@@ -151,11 +158,17 @@ export function startScene(canvas, { now, aurora }) {
     }
   }
 
+  // Returns the time step of the scene motion
   function update(dt) {
     const heard = now();
     applyMessages(heard);
     const live = heard !== null && latest && performance.now() - lastMessage < 1500;
     const src = live ? latest : CALM;
+    const playing = heard !== null;
+    motion = lerp(motion, playing ? 1 : 0, 1 - Math.exp(-dt / 0.8));
+    presence = lerp(presence, playing ? 1 : 0, 1 - Math.exp(-dt / 1.5));
+    const mdt = dt * motion;
+    time += mdt;
     // Smoothing: about 0.4 s for the storm, slower for the weather
     const k = 1 - Math.exp(-dt / 0.4);
     const kSlow = 1 - Math.exp(-dt / 2);
@@ -182,7 +195,7 @@ export function startScene(canvas, { now, aurora }) {
     }
 
     fade = lerp(fade, fadeTarget, 1 - Math.exp(-dt / 1.5));
-    updateEpisode(dt);
+    updateEpisode(mdt);
 
     // Candle flicker: a slow wave plus a faster, random part. Buffets
     // (deep pushes of the storm) make it flicker like in a draft.
@@ -192,8 +205,9 @@ export function startScene(canvas, { now, aurora }) {
         flicker.fastTarget = Math.random() * 2 - 1;
         flicker.next = time + 0.06 + Math.random() * 0.12;
       }
-      flicker.fast = lerp(flicker.fast, flicker.fastTarget, 1 - Math.exp(-dt / 0.05));
+      flicker.fast = lerp(flicker.fast, flicker.fastTarget, 1 - Math.exp(-mdt / 0.05));
     }
+    return mdt;
   }
 
   // Aurora episodes: a few minutes apart, each one different in strength
@@ -237,7 +251,7 @@ export function startScene(canvas, { now, aurora }) {
     const H = aurora.height;
     // Weather: a stronger storm gives a stronger aurora (base is about 0.2–0.6)
     const weather = clamp(0.6 + 1.2 * (s.base - 0.4), 0.35, 1.1);
-    const light = 1.1 * mixOf(2) * weather * episode.level * (1 + 0.25 * s.g);
+    const light = 1.1 * mixOf(2) * weather * episode.level * (1 + 0.25 * s.g) * presence;
     if (light < 0.004) {
       actx.clearRect(0, 0, W, H);
       return;
@@ -293,7 +307,8 @@ export function startScene(canvas, { now, aurora }) {
   }
 
   function drawSnow(dt) {
-    const snowMix = clamp(mixOf(3) * 0.5 + mixOf(1) * 0.5, 0, 1.3);
+    if (presence < 0.002) return;
+    const snowMix = clamp(mixOf(3) * 0.5 + mixOf(1) * 0.5, 0, 1.3) * presence;
     // Amount of snow: weather and bright gusts
     const amount = clamp(0.45 + 0.8 * (s.base - 0.4) + 0.45 * s.g, 0.2, 1);
     const move = !reduced.matches;
@@ -375,15 +390,22 @@ export function startScene(canvas, { now, aurora }) {
     if (t - lastFrame < 1000 / FPS - 2) return;
     const dt = Math.min((t - lastFrame) / 1000, 0.1);
     lastFrame = t;
-    time += dt;
-    update(dt);
+    const mdt = update(dt);
+    // Paused and settled: keep the last frame, save the battery
+    const still =
+      motion < 0.001 && presence < 0.001 && s.live < 0.001 && Math.abs(fade - fadeTarget) < 0.001;
+    if (still && !resized) return;
+    resized = false;
     ctx.clearRect(0, 0, width, height);
-    drawAurora(dt);
-    drawSnow(dt);
+    drawAurora(mdt);
+    drawSnow(mdt);
     drawCandle();
   }
 
-  addEventListener("resize", resize);
+  addEventListener("resize", () => {
+    resize();
+    resized = true;
+  });
   resize();
   requestAnimationFrame(frame);
 

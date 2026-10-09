@@ -44,6 +44,28 @@ h1 { margin: 0; font-size: 32px; font-weight: 400; line-height: 1; }
 .lettering { display: block; width: auto; }
 .tagline { margin: 8px 0 0; color: var(--muted); font-size: 13px; letter-spacing: -.01em; }
 
+/* Only shown when the browser can install the app and it is not installed yet */
+.install {
+  position: absolute;
+  top: max(40px, env(safe-area-inset-top));
+  right: max(44px, env(safe-area-inset-right));
+  height: 36px;
+  padding: 0 14px 0 12px;
+  display: flex; align-items: center; gap: 8px;
+  border: var(--glass-border);
+  border-radius: var(--radius-control);
+  background: var(--glass-fill);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow);
+  color: var(--soft);
+  font: inherit; font-size: 12px; font-weight: 500;
+  cursor: pointer;
+  transition: background .18s, color .18s;
+}
+.install[hidden] { display: none; }
+.install svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+
 .play {
   position: absolute;
   z-index: 1;
@@ -70,14 +92,14 @@ h1 { margin: 0; font-size: 32px; font-weight: 400; line-height: 1; }
 .play[aria-pressed="true"] { animation: breathe 8s ease-in-out infinite; }
 @keyframes breathe { 50% { background: var(--glass-fill-active); } }
 .play:active { transform: scale(.96); }
-.play:focus-visible, .chips button:focus-visible, .mixer summary:focus-visible, input:focus-visible {
+.play:focus-visible, .install:focus-visible, .chips button:focus-visible, .mixer-toggle:focus-visible, .mixer-reset:focus-visible, input:focus-visible {
   outline: 2px solid var(--accent); outline-offset: 4px;
 }
 .status { position: absolute; left: 0; right: 0; bottom: 126px; margin: 0; text-align: center; color: var(--muted); font-size: 13px; }
 
 .bar {
   position: absolute;
-  z-index: 2; /* Above the play button, so the mixer panel opens in front of it */
+  z-index: 2; /* Above the play button */
   left: 20px; right: 20px;
   bottom: max(32px, calc(env(safe-area-inset-bottom) + 16px));
   width: fit-content; max-width: calc(100% - 40px);
@@ -124,31 +146,43 @@ h1 { margin: 0; font-size: 32px; font-weight: 400; line-height: 1; }
 }
 /* Always takes its space, also when empty, so the bar keeps its width on play */
 .remaining { min-width: 52px; text-align: right; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--soft); }
-.mixer summary {
-  position: relative; list-style: none;
+.mixer-toggle {
   width: 36px; height: 36px;
+  padding: 0; border: 0;
   border-radius: var(--radius-control);
   display: grid; place-items: center;
+  background: transparent;
   cursor: pointer; color: var(--soft);
   transition: background .18s;
 }
-.mixer summary::-webkit-details-marker { display: none; }
-.mixer summary svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
-.mixer[open] summary { background: rgba(255, 255, 255, .1); color: var(--fg); }
+.mixer-toggle svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
+.mixer-toggle[aria-expanded="true"] { background: rgba(255, 255, 255, .1); color: var(--fg); }
+/* Placed above the bar by app.js (right / bottom / width) */
 .mixer-panel {
-  position: absolute;
-  right: 0; bottom: calc(100% + 12px);
+  position: fixed; inset: auto; margin: 0;
   width: 300px;
   padding: 22px;
+  overflow: visible;
   border-radius: var(--radius-panel);
   border: var(--glass-border);
-  /* No glass here: the bar has its own backdrop-filter and is thus a backdrop
-     root, so a blur in the panel cannot reach the scene or the play button
-     behind the panel. A near-opaque fill covers them instead. */
-  background: rgba(30, 36, 48, .88);
+  background: var(--glass-fill);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   box-shadow: var(--glass-shadow);
+  color: var(--fg);
 }
-.mixer-title { margin: 0 0 6px; font-size: 14px; font-weight: 600; letter-spacing: -.015em; }
+.mixer-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 6px; }
+.mixer-title { margin: 0; font-size: 14px; font-weight: 600; letter-spacing: -.015em; }
+.mixer-reset {
+  width: 28px; height: 28px; margin: -4px -6px -4px 0;
+  border: 0; border-radius: var(--radius-control);
+  background: transparent; color: var(--soft);
+  display: grid; place-items: center;
+  cursor: pointer;
+  transition: background .18s, color .18s, opacity .18s;
+}
+.mixer-reset svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.mixer-reset:disabled { opacity: .35; cursor: default; }
 .hint { margin: 0 0 16px; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .slider { display: grid; grid-template-columns: 56px minmax(0, 1fr); align-items: center; gap: 18px; padding: 9px 0; color: var(--soft); font-size: 12px; }
 
@@ -176,10 +210,13 @@ input[type="range"]::-moz-range-thumb { width: 14px; height: 14px; border: 0; bo
   .play:hover { background: var(--glass-fill-active); transform: scale(1.025); }
   .chips button:hover { color: var(--fg); background: rgba(255, 255, 255, .06); }
   .chips button[aria-checked="true"]:hover { background: rgba(255, 255, 255, .16); }
-  .mixer summary:hover { background: rgba(255, 255, 255, .08); }
+  .mixer-toggle:hover { background: rgba(255, 255, 255, .08); }
+  .install:hover { background: var(--glass-fill-active); color: var(--fg); }
+  .mixer-reset:not(:disabled):hover { background: rgba(255, 255, 255, .08); color: var(--fg); }
 }
 @media (max-width: 760px) {
   .brand { left: 28px; right: 28px; top: max(36px, calc(env(safe-area-inset-top) + 20px)); }
+  .install { right: 28px; top: max(36px, calc(env(safe-area-inset-top) + 20px)); }
   .bar {
     left: 16px; right: 16px;
     bottom: max(20px, calc(env(safe-area-inset-bottom) + 12px));
@@ -196,7 +233,6 @@ input[type="range"]::-moz-range-thumb { width: 14px; height: 14px; border: 0; bo
   .remaining { grid-column: 1 / -1; grid-row: 3; text-align: center; }
   .remaining:empty { display: none; }
   .status { bottom: 192px; }
-  .mixer-panel { right: -1px; width: calc(100% + 2px); }
 }
 @media (max-height: 440px) and (min-width: 761px) {
   .brand { top: 24px; left: 28px; }

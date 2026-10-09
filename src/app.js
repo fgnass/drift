@@ -10,6 +10,10 @@ const status = $("#status");
 const remaining = $("#remaining");
 const chips = [...document.querySelectorAll(".chips button")];
 const layerInputs = [...document.querySelectorAll("[data-layer]")];
+const bar = $(".bar");
+const mixerToggle = $("#mixer-toggle");
+const mixerPanel = $("#mixer-panel");
+const resetBtn = $("#mixer-reset");
 
 const defaults = {
   volume: 0.7,
@@ -244,17 +248,59 @@ volumeInput.addEventListener("input", () => {
   save();
 });
 
+function setLayer(name, value) {
+  settings[name] = value;
+  ready?.scape.setLayer(name, value);
+}
+
+function renderReset() {
+  resetBtn.disabled = layerInputs.every(
+    (input) => settings[input.dataset.layer] === DEFAULT_MIX[input.dataset.layer],
+  );
+}
+
 for (const input of layerInputs) {
   const name = input.dataset.layer;
   input.value = settings[name];
   updateRange(input);
   input.addEventListener("input", () => {
     updateRange(input);
-    settings[name] = Number(input.value);
-    ready?.scape.setLayer(name, settings[name]);
+    setLayer(name, Number(input.value));
+    renderReset();
     save();
   });
 }
+renderReset();
+
+resetBtn.addEventListener("click", () => {
+  for (const input of layerInputs) {
+    const name = input.dataset.layer;
+    input.value = DEFAULT_MIX[name];
+    updateRange(input);
+    setLayer(name, DEFAULT_MIX[name]);
+  }
+  renderReset();
+  save();
+});
+
+// The panel is a popover (top layer, closes on a click outside and on
+// Escape), so it is placed above the bar by hand.
+function placeMixer() {
+  const r = bar.getBoundingClientRect();
+  const narrow = matchMedia("(max-width: 760px)").matches;
+  // Narrow: as wide as the bar, aligned with its outer border
+  mixerPanel.style.right = `${innerWidth - r.right - (narrow ? 1 : 0)}px`;
+  mixerPanel.style.bottom = `${innerHeight - r.top + 12}px`;
+  mixerPanel.style.width = narrow ? `${r.width + 2}px` : "";
+}
+mixerPanel.addEventListener("beforetoggle", (e) => {
+  const open = e.newState === "open";
+  mixerToggle.setAttribute("aria-expanded", String(open));
+  if (open) placeMixer();
+});
+addEventListener("resize", () => {
+  if (mixerPanel.matches(":popover-open")) placeMixer();
+});
 
 for (const chip of chips) {
   chip.addEventListener("click", () => {
@@ -277,14 +323,51 @@ let idleTimeout = 0;
 function wake() {
   document.body.classList.remove("idle");
   clearTimeout(idleTimeout);
-  idleTimeout = setTimeout(
-    () => playing && document.body.classList.add("idle"),
-    15000,
-  );
+  idleTimeout = setTimeout(() => {
+    if (!playing) return;
+    document.body.classList.add("idle");
+    mixerPanel.hidePopover(); // the top layer does not dim with the rest
+  }, 15000);
 }
 for (const type of ["pointermove", "pointerdown", "keydown", "focusin"]) {
   addEventListener(type, wake, { passive: true });
 }
+
+// --- Install ---
+
+// The button shows only while the app can be installed and is not yet.
+const installBtn = $("#install");
+const installed = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+let installPrompt = null; // the deferred beforeinstallprompt event (Chromium)
+const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const isSafari = /Safari/.test(navigator.userAgent) && !/CriOS|FxiOS|EdgiOS/.test(navigator.userAgent);
+
+addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  installPrompt = e;
+  installBtn.hidden = installed;
+});
+addEventListener("appinstalled", () => {
+  installPrompt = null;
+  installBtn.hidden = true;
+  status.textContent = "Installed. Find drift on your home screen.";
+});
+// iOS has no install prompt: the button explains the manual way instead.
+if (!installed && isIOS && isSafari) installBtn.hidden = false;
+
+installBtn.addEventListener("click", async () => {
+  if (installPrompt) {
+    const prompt = installPrompt;
+    installPrompt = null;
+    installBtn.hidden = true;
+    // Each event can prompt only once; a dismissal gets a new event later.
+    prompt.prompt();
+    await prompt.userChoice;
+    return;
+  }
+  status.textContent = "Tap Share, then \u201cAdd to Home Screen\u201d.";
+});
 
 if ("mediaSession" in navigator) {
   navigator.mediaSession.metadata = new MediaMetadata({
