@@ -309,8 +309,23 @@ mixerPanel.addEventListener("beforetoggle", (e) => {
   mixerToggle.setAttribute("aria-expanded", String(open));
   if (open) placeMixer();
 });
+
+// The info panel opens below its button, aligned with its right edge
+const infoToggle = $("#info-toggle");
+const infoPanel = $("#info-panel");
+function placeInfo() {
+  const r = infoToggle.getBoundingClientRect();
+  infoPanel.style.top = `${r.bottom + 12}px`;
+  infoPanel.style.right = `${document.documentElement.clientWidth - r.right}px`;
+}
+infoPanel.addEventListener("beforetoggle", (e) => {
+  const open = e.newState === "open";
+  infoToggle.setAttribute("aria-expanded", String(open));
+  if (open) placeInfo();
+});
 addEventListener("resize", () => {
   if (mixerPanel.matches(":popover-open")) placeMixer();
+  if (infoPanel.matches(":popover-open")) placeInfo();
 });
 
 for (const chip of chips) {
@@ -337,7 +352,9 @@ function wake() {
   idleTimeout = setTimeout(() => {
     if (!playing) return;
     document.body.classList.add("idle");
-    mixerPanel.hidePopover(); // the top layer does not dim with the rest
+    // The top layer does not dim with the rest
+    mixerPanel.hidePopover();
+    infoPanel.hidePopover();
   }, 15000);
 }
 for (const type of ["pointermove", "pointerdown", "keydown", "focusin"]) {

@@ -34,10 +34,27 @@
         <p class="tagline">Let the snow drift. Follow along.</p>
       </header>
 
-      <button type="button" id="install" class="install" hidden>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11" /><path d="M7.5 10.5 12 15l4.5-4.5" /><path d="M5 19h14" /></svg>
-        Install
-      </button>
+      <nav class="corner" aria-label="Links">
+        <button type="button" id="install" class="install" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11" /><path d="M7.5 10.5 12 15l4.5-4.5" /><path d="M5 19h14" /></svg>
+          Install
+        </button>
+        <button type="button" id="info-toggle" class="info-toggle" popovertarget="info-panel" aria-label="About" aria-expanded="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="M12 11v5.5" /><path d="M12 7.6v.1" /></svg>
+        </button>
+        <div id="info-panel" class="panel info-panel" popover>
+          <h2 class="panel-title">About drift</h2>
+          <p class="hint">A blizzard that is synthesized live in your browser, so it never loops. Made by <a href="https://gnass.buzz/" target="_blank" rel="noopener">Felix Gnass</a>.</p>
+          <a class="info-link" href="https://github.com/fgnass/drift" target="_blank" rel="noopener">
+            <strong>Open Source</strong>
+            <span>See how the storm is made. MIT license, on GitHub.</span>
+          </a>
+          <a class="info-link" href="https://gnass.buzz/projects/" target="_blank" rel="noopener">
+            <strong>More projects</strong>
+            <span>Other little apps like this one.</span>
+          </a>
+        </div>
+      </nav>
 
       <button id="play" class="play" aria-label="Play" aria-pressed="false">
         <svg class="icon-play" viewBox="0 0 22 22" aria-hidden="true"><path d="M6.5 5.6c0-1.2 1.3-1.9 2.3-1.3l9 5.4c1 .6 1 2 0 2.6l-9 5.4c-1 .6-2.3-.1-2.3-1.3z" /></svg>
@@ -74,9 +91,9 @@
           </button>
           <!-- A popover: the top layer escapes the backdrop root of the bar,
                so the panel can have the same glass as the bar. -->
-          <div id="mixer-panel" class="mixer-panel" popover>
+          <div id="mixer-panel" class="panel mixer-panel" popover>
             <div class="mixer-head">
-              <h2 class="mixer-title">Sound mix</h2>
+              <h2 class="panel-title">Sound mix</h2>
               <button type="button" id="mixer-reset" class="mixer-reset" aria-label="Reset to defaults" title="Reset to defaults">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3" /><path d="M4.5 4.5v4.2h4.2" /></svg>
               </button>
