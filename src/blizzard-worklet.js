@@ -75,13 +75,15 @@ class Events {
     this.amp = 0;
   }
   // Fixed gap range instead of Poisson (for regular gusts)
-  static regular(minGap, maxGap, minLen, maxLen) {
+  static regular(minGap, maxGap, minLen, maxLen, firstAfter) {
     const e = new Events(0, minLen, maxLen);
     e.gap = [minGap, maxGap];
-    e.wait = between(10, maxGap) * sampleRate;
+    e.wait = firstAfter * sampleRate;
     return e;
   }
-  next(n) {
+  // `pace` > 1 shortens the gaps, but not the events themselves:
+  // shorter events sound like sudden bursts.
+  next(n, pace = 1) {
     if (this.len) {
       this.t += n;
       const x = this.t / this.len;
@@ -92,7 +94,7 @@ class Events {
       this.len = 0;
       this.wait = (this.gap ? between(...this.gap) : poisson(this.meanGap)) * sampleRate;
     }
-    this.wait -= n;
+    this.wait -= n * pace;
     if (this.wait <= 0) {
       this.t = 0;
       this.len = between(this.minLen, this.maxLen) * sampleRate;
@@ -233,6 +235,14 @@ const AIR_MOTION = 2.0;
 
 const db = (v) => 10 ** (v / 20);
 
+// Intro: on the first play, the storm shows its range quickly, so that
+// it does not sound like one steady noise. At the start, the slow drifts
+// and the gaps between events run INTRO_PACE times faster. The pace
+// eases to normal over INTRO seconds; the first minute holds about two
+// minutes of storm. The first gust, wail and buffet are scheduled early.
+const INTRO = 60;
+const INTRO_PACE = 5;
+
 class Blizzard extends AudioWorkletProcessor {
   static get parameterDescriptors() {
     return LAYERS.map((name) => ({ name, defaultValue: 0, minValue: 0, automationRate: "k-rate" }));
@@ -269,11 +279,15 @@ class Blizzard extends AudioWorkletProcessor {
     this.breath = new Drift(25); // loudness change over 10–60 s
     this.swell = new Drift(5); // the 6–10 s brightness waves
     this.flutter = new Drift(1.5); // 2–10 s band
-    this.gusts = Events.regular(35, 65, 3, 5); // bright gusts
+    // Bright gusts. First wait and gaps are in storm time (see INTRO):
+    // 14 s of storm time are about 3 s after play.
+    this.gusts = Events.regular(35, 65, 3, 5, 14);
     // Deep pushes against the walls. Soft and slow: about +1 dB like the
     // recording; stronger, faster pushes sound like sudden bursts.
     this.buffets = new Events(60, 1, 2, 20);
+    this.buffets.wait = 50 * sampleRate; // about 12 s after play
     this.gust = 0.4;
+    this.age = 0; // samples since the first play
 
     // Layer gains (mixer)
     this.mix = LAYERS.map(() => new Ramp());
@@ -307,15 +321,17 @@ class Blizzard extends AudioWorkletProcessor {
     }));
     this.howlAmp = new Ramp(1);
 
-    // --- Whistles: rare, short narrow-band glides (0.7 per minute) ---
-    this.whistle = null;
-    this.whistleWait = poisson(40) * sampleRate;
+    // --- Wails: the wind howls in a gap, 2.5–6 s long, a pitch that
+    // rises and falls with the loudness (about 2 per minute) ---
+    this.wail = null;
+    this.wailWait = 27 * sampleRate; // about 6 s after play (see INTRO)
     // Pink noise and two bandpasses in series: one bandpass on white noise
-    // has flat skirts that add a hissing burst at 1–4 kHz to each whistle.
-    this.whistlePink = [new Pink(), new Pink()];
-    this.whistleBP = new SVF2(BP, 600, 25);
-    this.whistleBP2 = new SVF2(BP, 600, 6);
-    this.whistleEnv = new Ramp(0);
+    // has flat skirts that add a hissing burst at 1–4 kHz to each wail.
+    this.wailPink = [new Pink(), new Pink()];
+    this.wailBP = new SVF2(BP, 500, 22);
+    this.wailBP2 = new SVF2(BP, 500, 6);
+    this.wailEnv = new Ramp(0);
+    this.wailWobble = new Drift(0.5); // small unsteady pitch changes
 
     // --- Snow: single ticks of blown snow, plus a faint hiss ---
     this.tickL = 0;
@@ -346,28 +362,31 @@ class Blizzard extends AudioWorkletProcessor {
     this.view = { base: 0.4, g: 0, b: 0, breath: 0, air: 0 };
   }
 
-  startWhistle() {
-    // Like the recording: 500–750 Hz only. Higher whistles and a fast
-    // attack sounded like sudden hissing bursts that can wake you up.
-    this.whistle = {
+  startWail() {
+    // Peaks stay below about 800 Hz: higher whistles and a fast attack
+    // sounded like sudden hissing bursts that can wake you up.
+    this.wail = {
       t: 0,
-      len: between(0.4, 1.0) * sampleRate,
-      f0: between(500, 750),
-      glide: between(-40, 60),
-      amp: between(1, 1.6),
+      len: between(2.5, 6) * sampleRate,
+      f0: between(380, 560),
+      rise: between(0.12, 0.35), // pitch rise at the peak, relative
+      end: between(-0.12, 0.04), // pitch change at the end, relative
+      amp: between(0.9, 1.4),
+      f: 0,
     };
+    this.wail.f = this.wail.f0;
   }
 
   report() {
-    const w = this.whistle;
+    const w = this.wail;
     this.port.postMessage({
       t: currentTime,
       gust: this.gust,
       ...this.view,
       voices: this.voices.map((v) => [v.freq, v.p || 0, v.lv || 0]),
       mix: this.mix.map((m) => m.v),
-      // Whistle progress (0–1) and frequency
-      whistle: w ? [w.t / w.len, w.f0 + (w.glide * w.t) / w.len] : null,
+      // Wail progress (0–1) and frequency
+      wail: w ? [w.t / w.len, w.f] : null,
     });
   }
 
@@ -376,14 +395,20 @@ class Blizzard extends AudioWorkletProcessor {
     const n = BLOCK;
     LAYERS.forEach((name, i) => this.mix[i].to(params[name][0], n));
 
+    // Speed of the storm (see INTRO)
+    this.age += n;
+    const intro = Math.max(0, 1 - this.age / (INTRO * sampleRate));
+    const pace = 1 + (INTRO_PACE - 1) * intro * intro;
+    const m = n * pace;
+
     // --- Storm state. `gust` is about 0.1 (calm) to 1 (strong gust) ---
-    const base = 0.4 + 0.1 * this.weather.next(n) + 0.08 * this.slow.next(n);
-    const g = this.gusts.next(n);
-    const b = this.buffets.next(n);
+    const base = 0.4 + 0.1 * this.weather.next(m) + 0.08 * this.slow.next(m);
+    const g = this.gusts.next(n, pace);
+    const b = this.buffets.next(n, pace);
     let gust = base + 0.08 * this.swell.next(n) + 0.03 * this.flutter.next(n) + 0.35 * g;
     if (gust < 0) gust = 0;
     this.gust = gust;
-    const breath = this.breath.next(n);
+    const breath = this.breath.next(m);
     const loud = 1 + 0.08 * breath;
     const view = this.view;
     view.base = base;
@@ -411,24 +436,27 @@ class Blizzard extends AudioWorkletProcessor {
     }
     this.howlAmp.to(loud * (0.85 + 0.3 * gust), n);
 
-    const s = this.whistle;
+    const s = this.wail;
     if (s) {
       s.t += n;
       const x = Math.min(s.t / s.len, 1);
-      this.whistleEnv.to(s.amp * Math.sin(Math.PI * x) ** 2, n);
-      const gw = coef(s.f0 + s.glide * x);
-      this.whistleBP.glide(gw, n);
-      this.whistleBP2.glide(gw, n);
+      const swell = Math.sin(Math.PI * x);
+      this.wailEnv.to(s.amp * swell * swell, n);
+      // The pitch follows the loudness, like wind that blows harder
+      s.f = s.f0 * (1 + s.rise * swell + s.end * x + 0.02 * this.wailWobble.next(n));
+      const gw = coef(s.f);
+      this.wailBP.glide(gw, n);
+      this.wailBP2.glide(gw, n);
       if (x >= 1) {
-        this.whistle = null;
-        this.whistleWait = poisson(60) * sampleRate;
+        this.wail = null;
+        this.wailWait = poisson(26) * sampleRate;
       }
-    } else if ((this.whistleWait -= n) <= 0) {
-      this.startWhistle();
-      this.whistleEnv.v = this.whistleEnv.d = 0;
-      const gw = coef(this.whistle.f0);
-      this.whistleBP.set(gw);
-      this.whistleBP2.set(gw);
+    } else if ((this.wailWait -= m) <= 0) {
+      this.startWail();
+      this.wailEnv.v = this.wailEnv.d = 0;
+      const gw = coef(this.wail.f0);
+      this.wailBP.set(gw);
+      this.wailBP2.set(gw);
     }
 
     // Snow follows the gusts only a little: in the recording, the
@@ -448,7 +476,7 @@ class Blizzard extends AudioWorkletProcessor {
 
     for (let i0 = 0; i0 < L.length; i0 += BLOCK) {
       this.control(params);
-      const whistling = this.whistle !== null;
+      const wailing = this.wail !== null;
       let peak = 0;
 
       for (let i = i0; i < i0 + BLOCK; i++) {
@@ -482,14 +510,14 @@ class Blizzard extends AudioWorkletProcessor {
           hr += a * voice.filter.yr;
         }
 
-        // --- Whistle ---
-        if (whistling) {
+        // --- Wail ---
+        if (wailing) {
           stereoWhite(this.sHowl);
-          this.whistleBP.run(this.whistlePink[0].next(wl) * 2, this.whistlePink[1].next(wr) * 2);
-          this.whistleBP2.run(this.whistleBP.yl, this.whistleBP.yr);
-          const e = this.whistleEnv.next();
-          hl += e * this.whistleBP2.yl;
-          hr += e * this.whistleBP2.yr;
+          this.wailBP.run(this.wailPink[0].next(wl) * 2, this.wailPink[1].next(wr) * 2);
+          this.wailBP2.run(this.wailBP.yl, this.wailBP.yr);
+          const e = this.wailEnv.next();
+          hl += e * this.wailBP2.yl;
+          hr += e * this.wailBP2.yr;
         }
         const ha = this.howlAmp.next() * mHowl.next();
         l += ha * hl;

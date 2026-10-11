@@ -4,7 +4,7 @@
 //
 //   howl voices    → aurora: each voice colors one band of the sky
 //                    (pitch = hue toward violet, level = light)
-//   whistle        → a bright wave runs once across the aurora
+//   wail           → a bright wave runs once across the aurora
 //   gust, gusts    → wind on the snow: drift, turbulence, gusts sweep it away
 //   air            → fine snow dust with its own motion
 //   buffets        → the candle flickers in the draft
@@ -50,7 +50,7 @@ const CALM = {
     [440, 0, 0],
   ],
   mix: MIX_NORM.map((m) => m * 0.6),
-  whistle: null,
+  wail: null,
 };
 
 // Aurora palette: teal at low pitch, violet at high pitch, green in the glow
@@ -188,9 +188,9 @@ export function startScene(canvas, { now, aurora }) {
     });
     src.mix.forEach((m, i) => (s.mix[i] = lerp(s.mix[i], m, k)));
 
-    // Whistle: a bright wave runs across the aurora
-    if (src.whistle) {
-      const [x] = src.whistle;
+    // Wail: a bright wave runs across the aurora
+    if (src.wail) {
+      const [x] = src.wail;
       s.shimmer = Math.sin(Math.PI * clamp(x, 0, 1)) ** 2;
       s.shimmerX = 0.1 + 0.8 * x;
     } else {
