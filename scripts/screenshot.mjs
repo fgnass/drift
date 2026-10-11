@@ -11,9 +11,10 @@
  *
  *   public/screenshots/start.png   playing, the main screen
  *   public/screenshots/mixer.png   playing, with the sound mixer open
- *   public/screenshots/og.png      the link preview (og:image): playing on a
- *                                  desktop viewport, in a browser window on
- *                                  the aurora teal, 2400 × 1260
+ *   public/screenshots/og.png      the link preview (og:image): the wordmark
+ *                                  and two short phones (360 × 700), idle and
+ *                                  with the mixer open, on the aurora teal,
+ *                                  2400 × 1260
  *
  * Re-run any time the UI changes:  npm run screenshot
  */
@@ -22,6 +23,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { createServer } from "vite";
+import { shape } from "./lettering.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, "..");
@@ -34,6 +36,9 @@ const SCALE = 2;
 
 const PORT = 5172;
 const BASE = `http://127.0.0.1:${PORT}/`;
+
+// Viewport of the phones in the link preview
+const PREVIEW_VIEWPORT = { width: 360, height: 700 };
 
 // The first aurora starts after 1–3 s and grows with a time constant of 3 s
 const AURORA_MS = 12_000;
@@ -59,63 +64,57 @@ async function play(page) {
   await page.waitForSelector('#play[aria-pressed="true"]');
 }
 
-const BAR = 40;
-const BORDER = 2;
+// The link preview (og:image) for LinkedIn, Slack etc., which use 1.91:1
+const OG = { width: 1200, height: 630 };
 
-/**
- * A shot in a stylized browser window on the accent color, like the link
- * previews of the other projects on gnass.buzz/projects. `canvas` is the image
- * size in CSS pixels, `window` the place of the window in it. The app
- * viewport is the window minus its border and title bar.
- */
-function framedShot(canvas, window, stage) {
-  const content = {
-    width: window.width - 2 * BORDER,
-    height: window.height - BAR - 2 * BORDER,
-  };
-  return {
-    viewport: content,
-    mobile: false,
-    stage,
-    compose: (browser, png) =>
-      frameInBrowser(browser, png, canvas, window, content),
-  };
+/** A phone screenshot in a dark frame, like the windows on gnass.buzz/projects. */
+function phone(png, { x, y, width }) {
+  return `<div class="phone" style="left:${x}px; top:${y}px; width:${width}px">
+    <img src="data:image/png;base64,${png.toString("base64")}" />
+  </div>`;
 }
 
-async function frameInBrowser(browser, png, canvas, w, content) {
+/** The wordmark in Economica Italic, the same glyphs as in the app header. */
+function wordmark(width) {
+  const { d, x, y, width: w, height: h } = shape("drift");
+  return `<svg viewBox="${x} ${y} ${w} ${h}" width="${width}" height="${(width * h) / w}">
+    <path fill="${FRAME}" d="${d}"/></svg>`;
+}
+
+/** Link previews, composed from the phone shots on the accent color. */
+const PREVIEWS = {
+  // The wordmark with the tagline, and two short phones that fit
+  // completely: the quiet scene and all the controls
+  og: ({ idle, controls }) => `
+    <div class="side">
+      ${wordmark(240)}
+      <p>A blizzard outside your window, synthesized live.</p>
+    </div>
+    ${phone(idle, { x: 530, y: 50, width: 273 })}
+    ${phone(controls, { x: 837, y: 50, width: 273 })}`,
+};
+
+async function compose(browser, name, body) {
   const html = `<!doctype html>
 <style>
   * { box-sizing: border-box; margin: 0; }
-  body { width: ${canvas.width}px; height: ${canvas.height}px; background: ${ACCENT}; overflow: hidden; }
-  .window {
-    position: absolute; left: ${w.x}px; top: ${w.y}px; width: ${w.width}px; height: ${w.height}px;
-    border: ${BORDER}px solid ${FRAME}; border-radius: 16px; overflow: hidden;
+  body { width: ${OG.width}px; height: ${OG.height}px; background: ${ACCENT}; overflow: hidden; }
+  .phone {
+    position: absolute; padding: 10px; border-radius: 44px;
     background: ${FRAME}; box-shadow: 0 10px #00000038;
   }
-  .bar { position: relative; height: ${BAR}px; display: flex; align-items: center; padding-left: 16px; gap: 8px; }
-  .dot { width: 12px; height: 12px; border-radius: 50%; background: ${ACCENT}; opacity: 0.6; }
-  .url {
-    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-    width: 360px; height: 26px; border-radius: 13px; background: #ffffff1a;
-    color: #d6fff3; font: 500 13px/26px system-ui, sans-serif; text-align: center; letter-spacing: 0.02em;
-  }
-  img { display: block; width: ${content.width}px; height: ${content.height}px; }
+  .phone img { display: block; width: 100%; border-radius: 34px; }
+  .side { position: absolute; left: 90px; top: 50%; transform: translateY(-50%); width: 380px; }
+  .side p { margin-top: 28px; color: ${FRAME}; font: 500 28px/1.35 system-ui, sans-serif; }
 </style>
-<div class="window">
-  <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">drift.gnass.buzz</span></div>
-  <img src="data:image/png;base64,${png.toString("base64")}" />
-</div>`;
-  const context = await browser.newContext({
-    viewport: canvas,
-    deviceScaleFactor: SCALE,
-  });
+${body}`;
+  const context = await browser.newContext({ viewport: OG, deviceScaleFactor: SCALE });
   try {
     const page = await context.newPage();
     await page.setContent(html, { waitUntil: "load" });
-    return {
-      png: await page.screenshot(),
-      size: { width: canvas.width * SCALE, height: canvas.height * SCALE },
-    };
+    const out = resolve(outDir, `${name}.png`);
+    await writeFile(out, await page.screenshot());
+    console.log(`Saved ${out} (${OG.width * SCALE} × ${OG.height * SCALE})`);
   } finally {
     await context.close();
   }
@@ -137,15 +136,31 @@ const SHOTS = {
       await wait(page, AURORA_MS);
     },
   },
-  // Link preview for LinkedIn, Slack etc., which use 1.91:1.
-  og: framedShot(
-    { width: 1200, height: 630 },
-    { x: 60, y: 40, width: 1080, height: 534 },
-    async (page) => {
+  // For the link preview only: shorter, narrower phones, so two of them
+  // fit completely. The quiet scene, after the controls have dimmed:
+  idle: {
+    viewport: PREVIEW_VIEWPORT,
+    tries: 4,
+    save: false,
+    async stage(page) {
       await play(page);
       await wait(page, AURORA_MS);
+      // Nobody touches the screen for 15 s; the dimming takes 4 s
+      await page.evaluate(() => document.body.classList.add("idle"));
+      await wait(page, 4500);
     },
-  ),
+  },
+  // All the controls, with the sound mixer open:
+  controls: {
+    viewport: PREVIEW_VIEWPORT,
+    tries: 4,
+    save: false,
+    async stage(page) {
+      await play(page);
+      await page.click("#mixer-toggle");
+      await wait(page, AURORA_MS);
+    },
+  },
 };
 
 function startServer() {
@@ -156,31 +171,55 @@ function startServer() {
   }).then((server) => server.listen());
 }
 
+/** Light of the aurora canvas: the sum of its color, weighted by alpha. */
+function auroraLight() {
+  const c = document.querySelector("#aurora");
+  const { data } = c.getContext("2d").getImageData(0, 0, c.width, c.height);
+  let sum = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    sum += ((data[i] + data[i + 1] + data[i + 2]) * data[i + 3]) / 255;
+  }
+  return sum / (c.width * c.height) * Number(getComputedStyle(c).opacity);
+}
+
+/**
+ * Capture a shot `tries` times and keep the one with the brightest aurora.
+ * The seed only reaches the page: the storm in the audio worklet, which
+ * sets the strength of the aurora, is different on each run.
+ */
+async function captureBest(browser, name, shot) {
+  const { tries = 1 } = shot;
+  const runs = await Promise.all(
+    Array.from({ length: tries }, (_, i) => capture(browser, name, shot, 7 + i)),
+  );
+  const best = runs.reduce((a, b) => (b.light > a.light ? b : a));
+  const { viewport = VIEWPORT, save = true } = shot;
+  if (save) {
+    const out = resolve(outDir, `${name}.png`);
+    await writeFile(out, best.png);
+    console.log(`Saved ${out} (${viewport.width * SCALE} × ${viewport.height * SCALE})`);
+  }
+  return best.png;
+}
+
 /** Capture one shot in its own context (own localStorage), then dispose it. */
-async function capture(browser, name, shot) {
-  const { viewport = VIEWPORT, scale = SCALE, mobile = true } = shot;
+async function capture(browser, name, shot, seed) {
+  const { viewport = VIEWPORT } = shot;
   const context = await browser.newContext({
     viewport,
-    deviceScaleFactor: scale,
-    isMobile: mobile,
-    hasTouch: mobile,
+    deviceScaleFactor: SCALE,
+    isMobile: true,
+    hasTouch: true,
   });
   try {
-    await context.addInitScript(seedRandom, 7);
+    await context.addInitScript(seedRandom, seed);
     const page = await context.newPage();
     page.on("pageerror", (err) => console.log(`  [page] ${err.message}`));
     console.log(`Opening ${BASE} for ${name}`);
     await page.goto(BASE, { waitUntil: "networkidle" });
     await shot.stage(page);
-    let png = await page.screenshot();
-    let size = {
-      width: viewport.width * scale,
-      height: viewport.height * scale,
-    };
-    if (shot.compose) ({ png, size } = await shot.compose(browser, png));
-    const out = resolve(outDir, `${name}.png`);
-    await writeFile(out, png);
-    console.log(`Saved ${out} (${size.width} × ${size.height})`);
+    const light = await page.evaluate(auroraLight);
+    return { png: await page.screenshot(), light };
   } finally {
     await context.close();
   }
@@ -194,9 +233,12 @@ async function main() {
     args: ["--autoplay-policy=no-user-gesture-required"],
   });
   try {
-    await Promise.all(
-      Object.entries(SHOTS).map(([name, shot]) => capture(browser, name, shot)),
-    );
+    const names = Object.keys(SHOTS);
+    const pngs = await Promise.all(names.map((name) => captureBest(browser, name, SHOTS[name])));
+    const shots = Object.fromEntries(names.map((name, i) => [name, pngs[i]]));
+    for (const [name, body] of Object.entries(PREVIEWS)) {
+      await compose(browser, name, body(shots));
+    }
   } finally {
     await browser.close();
     await server.close();
